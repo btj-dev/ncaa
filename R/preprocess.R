@@ -1,23 +1,20 @@
 #!/usr/bin/Rscript
 
+## This script loads all of the data that was downloaded from cfbstats.com
+## into a database named '../data/ncaa-fb.sqlite3'. The data should be
+## saved in ../data/raw/[YEAR]/[NAME].csv, where year is the 4 digit year
+## from 2005-2013, and [NAME] is the name of the type of the data being
+## stored (e.g. ../data/raw/2005/conference.csv). In most cases, the filenames
+## should be correct when the data is downloaded and only the directory names
+## need to be updated. 
+
 library(RSQLite)
+
+source('download-data.R')
 
 years <- seq(2005, 2013)
 
-load.multi.files <- function(format, itr) {
-    ## Read the data from each file into a list
-    lst <- list()
-    for(i in seq(length(itr)))
-        lst[[i]] <- read.csv(sprintf(format, itr[i]))
-    
-    ## Aggregate the data, this will be slow for large datasets due to
-    ## reallocating the dataframe
-    df <- lst[[1]]
-    for(i in seq(2, length(itr)))
-        df <- rbind(df, lst[[i]])
-
-    return(df)
-}
+download.data()
 
 ## Read the data from the csv files
 confs <- load.multi.files('../data/raw/%d/conference.csv', years)
