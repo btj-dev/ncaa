@@ -9,17 +9,32 @@ db.add.cities <- function(cities) {
         stop('City names must be provided')
     if(is.null(cities$state))
         stop('City states must be provided')
-    if(is.null(cities$latitude))
-        cities$latitude <- NA
-    if(is.null(cities$longitude))
-        cities$longitude <- NA
-    cities$key <- sapply(seq(nrow(cities)), function(i) {
-            dbSendQuery(con, sprintf('INSERT INTO cities () VALUES (%s, %s, %d, %d',
-                                     cities$name[i], cities$state[i],
-                                     cities$latitude[i], cities$longitude[i]))
-            dbSendQuery(con, sprintf('SELECT key FROM cities WHERE'))
-                        
+    cities$key <- sapply(seq(nrow(cities)), function(i)
+                         return(db.add.city(con, cities[i,])))
     db.disconnect(con)
+    return(cities)
+}
+
+## Adds a single city to the database
+db.add.city <- function(con, city) {
+    if(is.null(city$latitude))
+        city$latitude <- 'NULL'
+    if(is.null(city$longitude))
+        city$longitude <- 'NULL'
+    stmt <- paste("INSERT INTO cities (name, state, latitude, longitude)",
+                  "VALUES ('", city$name, "', '", city$state, "',",
+                  city$latitude, ", ", city$longitude, ")",
+                  sep='')
+    print(stmt)
+    dbSendQuery(con, stmt)
+    stmt <- sprintf("SELECT id FROM cities WHERE name = '%s' and state = '%s'",
+                    city$name, city$state)
+    print(stmt)
+    res <- dbSendQuery(con, stmt)
+    
+    key <- as.integer(fetch(res, 1))
+    dbClearResult(res)
+    return(key)
 }
 
 ## Create the database schema
