@@ -150,3 +150,35 @@ db.disconnect <- function(con) {
     dbCommit(con)
     dbDisconnect(con)
 }
+
+## Retrieves all cities from the database
+db.fetch.cities <- function() {
+    con <- db.connect()
+    cities <- dbGetQuery(con, 'SELECT * from cities')
+    db.disconnect(con)
+    return(cities)
+}
+
+## Updates multiple city records in the database
+db.update.cities <- function(cities) {
+    con <- db.connect()
+    sapply(seq(nrow(cities)), function(i)
+           db.update.city(con, cities[i,]))
+    db.disconnect(con)
+}
+
+## Updates a city record in the database
+db.update.city <- function(con, city) {
+    if(is.null(city$latitude))
+        city$latitude <- 'NULL'
+    if(is.null(city$longitude))
+        city$longitude <- 'NULL'
+    stmt <- paste("UPDATE cities SET ",
+                  "name = '", city$name, "', ",
+                  "state = '", city$state, "', ",
+                  "latitude=", city$latitude, ", ",
+                  "longitude=", city$longitude, " ",
+                  "WHERE id=", city$id,
+                  sep="")
+    dbSendQuery(con, stmt)
+}

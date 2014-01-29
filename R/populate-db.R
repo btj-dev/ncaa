@@ -5,6 +5,7 @@
 source('cfbstats.R') ## Functions to download from cfbstats.com
 source('config.R') ## Configuration
 source('db.R') ## Functions for interacting with the database
+source('extra-data.R') ## Functions for download data from various sources
 
 ## Create the database
 db.create()
@@ -14,3 +15,5 @@ download.cfbstats(cfg$rawdatadir)
 load.stadiums(cfg$rawdatadir)
 
 ## Download supplementary info from other sites
+download.city.locations(cfg$rawdatadir)
+load.city.locations(cfg$rawdatadir)

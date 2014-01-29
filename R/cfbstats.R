@@ -1,5 +1,21 @@
 source('db.R')
 
+## Fix some naming errors and discrepencies between datasets for the cities
+fix.cities <- function(cities) {
+    cities$City <- as.character(cities$City)
+    cities$City[which((cities$City == 'De Kalb') &
+                      (as.character(cities$state) == 'IL'))] <- 'Dekalb'
+    cities$City[which((cities$City == 'Munice') &
+                      (as.character(cities$state) == 'IN'))] <- 'Muncie'
+    cities$City[which((cities$City == 'St. Louis') &
+                      (as.character(cities$state) == 'MO'))] <- 'Saint Louis'
+    cities$City[which((cities$City == 'St. Petersburg') &
+                      (as.character(cities$state) == 'FL'))] <-
+                          'Saint Petersburg'
+    cities$City <- as.factor(cities$City)
+    return(cities)
+}
+
 ## Loads multiple years of data into a single data frame. Format is a string
 ## to be passed to sprintf along with each element of itr (e.g.
 ## sprintf(format, itr[1])).
@@ -27,6 +43,7 @@ load.multi.files <- function(format, itr) {
 load.stadiums <- function(datadir, years=seq(2005, 2013)) {
     stadiums.raw <- load.multi.files(sprintf('%s/%%d/stadium.csv', datadir),
                                      years)
+    stadiums.raw <- fix.cities(stadiums.raw)
     ## Extract the cities that house stadiums
     cities <- with(stadiums.raw, unique(data.frame(name=City, state=State)))
     cities <- db.add.cities(cities)
