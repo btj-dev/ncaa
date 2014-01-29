@@ -37,13 +37,21 @@ load.stadiums <- function(datadir, years=seq(2005, 2013)) {
     stadiums$city.key <- sapply(seq(nrow(stadiums)), function(i)
         return(cities$key[which(cities$name == stadiums$city[i] &
                                 cities$state == stadiums$state[i])]))
-    db.add.stadiums(stadiums)
+    stadiums <- with(stadiums, data.frame(old.key=key, city=city.key,
+                                          yr.opened=yr.opened))
+    stadiums <- db.add.stadiums(stadiums)
     ## Extract the transitive properties of stadiums
     stadiums.transitive <- with(stadiums.raw, data.frame(key=Stadium.Code,
                                                          name=Name,
                                                          capacity=Capacity,
                                                          surface=Surface))
-    db.add.stadiums.transitive(stadiums.transitive)
+    ## Replace the csv keys to the database keys
+    stadiums.transitive$key <- sapply(seq(nrow(stadiums.transitive)),
+        function(i)
+            stadiums$key[which(stadiums$old.key ==
+                               stadiums.transitive$key[i])])
+    ## Add the transitive properties to the database
+    stadiums.transitive <- db.add.stadiums.transitive(stadiums.transitive)
 }
 
 ## This function downloads the college football data from cfbstats.com and
