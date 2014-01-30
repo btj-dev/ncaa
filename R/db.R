@@ -159,6 +159,14 @@ db.fetch.cities <- function() {
     return(cities)
 }
 
+## ## Executes an arbitrary sql statement and returns the result
+db.get.query <- function(sql) {
+    con <- db.connect()
+    res <- dbGetQuery(con, sql)
+    db.disconnect(con)
+    return(res)
+}
+
 ## Updates multiple city records in the database
 db.update.cities <- function(cities) {
     con <- db.connect()
@@ -169,9 +177,9 @@ db.update.cities <- function(cities) {
 
 ## Updates a city record in the database
 db.update.city <- function(con, city) {
-    if(is.null(city$latitude))
+    if(is.null(city$latitude) | is.na(city$latitude))
         city$latitude <- 'NULL'
-    if(is.null(city$longitude))
+    if(is.null(city$longitude)| is.na(city$longitude))
         city$longitude <- 'NULL'
     stmt <- paste("UPDATE cities SET ",
                   "name = '", city$name, "', ",

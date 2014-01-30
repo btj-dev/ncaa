@@ -4,13 +4,13 @@ source('db.R')
 fix.cities <- function(cities) {
     cities$City <- as.character(cities$City)
     cities$City[which((cities$City == 'De Kalb') &
-                      (as.character(cities$state) == 'IL'))] <- 'Dekalb'
+                      (as.character(cities$State) == 'IL'))] <- 'Dekalb'
     cities$City[which((cities$City == 'Munice') &
-                      (as.character(cities$state) == 'IN'))] <- 'Muncie'
+                      (as.character(cities$State) == 'IN'))] <- 'Muncie'
     cities$City[which((cities$City == 'St. Louis') &
-                      (as.character(cities$state) == 'MO'))] <- 'Saint Louis'
+                      (as.character(cities$State) == 'MO'))] <- 'Saint Louis'
     cities$City[which((cities$City == 'St. Petersburg') &
-                      (as.character(cities$state) == 'FL'))] <-
+                      (as.character(cities$State) == 'FL'))] <-
                           'Saint Petersburg'
     cities$City <- as.factor(cities$City)
     return(cities)
