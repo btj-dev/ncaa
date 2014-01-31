@@ -13,6 +13,9 @@ db.create()
 ## Download stats from cfbstats.com and add to db as needed
 download.cfbstats(cfg$rawdatadir)
 load.stadiums(cfg$rawdatadir)
+load.teams(cfg$rawdatadir)
+load.games(cfg$rawdatadir)
+load.plays(cfg$rawdatadir)
 
 ## Download supplementary info from other sites
 download.city.locations(cfg$rawdatadir)

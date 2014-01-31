@@ -21,7 +21,7 @@ db.add.city <- function(con, city) {
         city$latitude <- 'NULL'
     if(is.null(city$longitude))
         city$longitude <- 'NULL'
-    stmt <- paste("INSERT INTO cities (name, state, latitude, longitude)",
+    stmt <- paste("INSERT INTO city (name, state, latitude, longitude)",
                   "VALUES ('", city$name, "', '", city$state, "',",
                   city$latitude, ", ", city$longitude, ")",
                   sep='')
@@ -40,16 +40,18 @@ db.add.record <- function(con, sql) {
     return(key)
 }
 
-## Adds a single stadium to the database. If neither 
+## Adds a single stadium to the database.
 db.add.stadium <- function(con, stadium) {
     if(is.null(stadium$city))
         stadium$city <- 'NULL'
     if(is.null(stadium$yr.opened))
         stadium$yr.opened <- 'NULL'
-    stmt <- paste("INSERT INTO stadiums (city, year_opened) VALUES (",
-                  stadium$city, ", ", stadium$yr.opened, ')',
-                  sep="")
-    return(db.add.record(con, stmt))
+    stmt <- paste("INSERT INTO stadium (id, city, year_opened) VALUES (",
+                  stadium$key, ", ", stadium$city, ", ", stadium$yr.opened,
+                  ')', sep="")
+    id <- db.add.record(con, stmt)
+    return(dbGetQuery(con,
+                      sprintf('SELECT id FROM stadium WHERE OID = %d', id)))
 }
 
 ## Adds a set of stadiums to the database
@@ -74,7 +76,7 @@ db.add.stadium.transitive <- function(con, stadium) {
         stadium$capacity <- 'NULL'
     if(is.null(stadium$surface))
         stadium$surface <- 'NULL'
-    stmt <- paste("INSERT INTO stadiums_transitive ",
+    stmt <- paste("INSERT INTO stadium_transitive ",
                   "(stadium, name, capacity, surface)",
                   "VALUES (", stadium$key, ", '", stadium$name, "', ",
                   stadium$capacity, ", '", stadium$surface, "')",
@@ -100,16 +102,19 @@ db.connect <- function()
 ## Create the database schema
 db.create <- function() {
     con <- db.connect()
-    db.create.table.cities(con)
-    db.create.table.stadiums(con)
-    db.create.table.stadiums.transitive(con)
+    db.create.table.city(con)
+    db.create.table.stadium(con)
+    db.create.table.stadium.transitive(con)
+    db.create.table.team(con)
+    db.create.table.game(con)
+    db.create.table.play(con)
     db.disconnect(con)
 }
 
 ## Create the table for storing cities
-db.create.table.cities <- function(con) {
+db.create.table.city <- function(con) {
     dbSendQuery(con, paste(
-        "CREATE TABLE cities (",
+        "CREATE TABLE city (",
         "id INTEGER PRIMARY KEY AUTOINCREMENT,",
         "name TEXT NOT NULL,",
         "state VARCHAR(2) NOT NULL,",
@@ -119,28 +124,83 @@ db.create.table.cities <- function(con) {
         ))
 }
 
-## Create the table for storing stadium permanent properties
-db.create.table.stadiums <- function(con) {
+## Create te table for storing games
+db.create.table.game <- function(con) {
     dbSendQuery(con, paste(
-        "CREATE TABLE stadiums (",
+        "CREATE TABLE game (",
+        "id INTEGER PRIMARY KEY,",
+        "date VARCHAR(16) NOT NULL,",
+        "home_team INTEGER NOT NULL,",
+        "away_team INTEGER NOT NULL,",
+        "stadium VARCHAR(2) NOT NULL,",
+        "FOREIGN KEY ( home_team ) REFERENCES team(id),",
+        "FOREIGN KEY ( away_team ) REFERENCES team(id)",
+        ")"
+        ))
+}
+
+## Create a table for storing play information
+## TODO Add triggers
+db.create.table.play <- function(con) {
+    dbSendQuery(con, paste(
+        "CREATE TABLE play (",
         "id INTEGER PRIMARY KEY AUTOINCREMENT,",
+        "game_code INTEGER NOT NULL,",
+        "play_number INTEGER,",
+        "quarter INTEGER NOT NULL,",
+        "clock INTEGER,",
+        ## TODO Store home/away are reference game for team names
+        "offense INTEGER NOT NULL,", 
+        "defense INTEGER NOT NULL,",
+        "offense_points INTEGER,",
+        "defense_points INTEGER,",
+        "down INTEGER NOT NULL,",
+        "distance INTEGER NOT NULL,",
+        "spot INTEGER NOT NULL,",
+        "play_type TEXT,",
+        "drive_number INTEGER NOT NULL,",
+        "drive_play INTEGER NOT NULL,",
+        "FOREIGN KEY ( game_code ) REFERENCES game(id)",
+        "FOREIGN KEY ( offense ) REFERENCES team(id)",
+        "FOREIGN KEY ( defense ) REFERENCES team(id)",
+        ")"
+        ))
+}
+
+## Create the table for storing stadium permanent properties
+db.create.table.stadium <- function(con) {
+    dbSendQuery(con, paste(
+        "CREATE TABLE stadium (",
+        "id INTEGER PRIMARY KEY,",
         "city INTEGER NOT NULL,",
         "year_opened INTEGER,",
-        "FOREIGN KEY(city) REFERENCES cities(id)",
+        "FOREIGN KEY(city) REFERENCES city(id)",
         ")"
         ))
 }
 
 ## Create the table for storing stadium transitive properties
-db.create.table.stadiums.transitive <- function(con) {
+db.create.table.stadium.transitive <- function(con) {
     dbSendQuery(con, paste(
-        "CREATE TABLE stadiums_transitive (",
+        "CREATE TABLE stadium_transitive (",
         "id INTEGER PRIMARY KEY AUTOINCREMENT,",
         "stadium INTEGER NOT NULL,",
         "name TEXT,",
         "capacity INTEGER,",
         "surface TEXT,",
         "FOREIGN KEY (stadium) REFERENCES stadium(id)",
+        ")"
+        ))
+}
+
+## Create the table for storing teams
+db.create.table.team <- function(con) {
+   dbSendQuery(con, paste(
+        "CREATE TABLE team (",
+        "id INTEGER PRIMARY KEY,",
+        "university TEXT NOT NULL,",
+        "home_stadium INTEGER NOT NULL,",
+        "FOREIGN KEY (home_stadium) REFERENCES stadium(id)",
         ")"
         ))
 }
@@ -154,7 +214,7 @@ db.disconnect <- function(con) {
 ## Retrieves all cities from the database
 db.fetch.cities <- function() {
     con <- db.connect()
-    cities <- dbGetQuery(con, 'SELECT * from cities')
+    cities <- dbGetQuery(con, 'SELECT * from city')
     db.disconnect(con)
     return(cities)
 }
@@ -181,7 +241,7 @@ db.update.city <- function(con, city) {
         city$latitude <- 'NULL'
     if(is.null(city$longitude)| is.na(city$longitude))
         city$longitude <- 'NULL'
-    stmt <- paste("UPDATE cities SET ",
+    stmt <- paste("UPDATE city SET ",
                   "name = '", city$name, "', ",
                   "state = '", city$state, "', ",
                   "latitude=", city$latitude, ", ",
