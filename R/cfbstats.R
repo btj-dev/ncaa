@@ -75,10 +75,10 @@ get.home.stadiums <- function(datadir, years) {
                           stadium=Stadium.Code))
     ## Find the most common home stadium for each team, each year
     teams <- unique(df$team)
-    return.stadiums <- expand.grid(team=teams, year=years) ## Return df
-    return.stadiums$stadium <- sapply(seq(nrow(return.stadiums)),
+    return.stadiums <- expand.grid(team.id=teams, year=years) ## Return df
+    return.stadiums$home.stadium <- sapply(seq(nrow(return.stadiums)),
         function(i) {
-            data <- subset(subset(df, team == return.stadiums$team[i]),
+            data <- subset(subset(df, team == return.stadiums$team.id[i]),
                            year == return.stadiums$year[i])
             uni <- unique(data$stadium)
             return(uni[which.max(tabulate(match(data$stadium, uni)))])
@@ -134,7 +134,7 @@ load.teams <- function(datadir, years=get.all.years()) {
                                             old.key=teams.raw$Team.Code)))
     ## Load the home stadium for each team each year
     home.stadiums <- get.home.stadiums(datadir, years)
-    db.add.teams.transitive(home.stadiums)
+    home.stadiums <- db.add.teams.transitive(home.stadiums)
 }
 
 ## Loads multiple years of data into a single data frame. Format is a string

@@ -118,6 +118,31 @@ db.add.teams <- function(teams) {
     return(teams)
 }
 
+## Add the transitive data for a single team in a single year
+db.add.team.transitive <- function(con, team) {
+    if(is.null(team$team.id))
+        stop("Team ID must be provided")
+    if(is.null(team$year))
+        stop("Year must be provided")
+    if(is.null(team$home.stadium))
+        team$home_stadium = 'NULL'
+    stmt <- paste("INSERT INTO team_transitive ",
+                  "(team_id, year, home_stadium) VALUES ( ",
+                  team$team.id, ", ", team$year, ", '", team$home.stadium,
+                  "' )",
+                  sep="")
+    return(db.add.record(con, stmt))
+}
+
+## Add the transitive data for a set of teams
+db.add.teams.transitive <- function(teams) {
+    con <- db.connect()
+    teams$key <- sapply(seq(nrow(teams)), function(i)
+                            return(db.add.team.transitive(con, teams[i,])))
+    db.disconnect(con)
+    return(teams)
+}
+
 ## Connects to the database
 db.connect <- function()
     return(dbConnect(dbDriver('SQLite'), dbname=dbname))
@@ -233,7 +258,7 @@ db.create.table.team.transitive <- function(con) {
         "CREATE TABLE team_transitive (",
         "id INTEGER PRIMARY KEY AUTOINCREMENT,",
         "team_id INTEGER,",
-        "home_stadium INTEGER NOT NULL,",
+        "home_stadium INTEGER,",
         "year INTEGER NOT NULL,",
         "FOREIGN KEY ( team_id ) REFERENCES team(id)",
         "FOREIGN KEY ( home_stadium ) REFERENCES stadium(id)",
