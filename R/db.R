@@ -95,6 +95,29 @@ db.add.stadiums.transitive <- function(stadiums) {
     return(stadiums)
 }
 
+## Adds the permenant team data for a single team
+db.add.team <- function(con, team) {
+    if(is.null(team$university)) {
+        stop("The university name must be provided")
+    } else {
+        team$university <- gsub("'", "''", team$university)
+    }
+    stmt <- paste("INSERT INTO team ",
+                  "(university) ",
+                  "VALUES ( '", team$university, "' )",
+                  sep="")
+    return(db.add.record(con, stmt))
+}
+
+## Adds the permanent team data for a set of teams
+db.add.teams <- function(teams) {
+    con <- db.connect()
+    teams$key <- sapply(seq(nrow(teams)), function(i)
+                            return(db.add.team(con, teams[i,])))
+    db.disconnect(con)
+    return(teams)
+}
+
 ## Connects to the database
 db.connect <- function()
     return(dbConnect(dbDriver('SQLite'), dbname=dbname))
@@ -106,6 +129,7 @@ db.create <- function() {
     db.create.table.stadium(con)
     db.create.table.stadium.transitive(con)
     db.create.table.team(con)
+    db.create.table.team.transitive(con)
     db.create.table.game(con)
     db.create.table.play(con)
     db.disconnect(con)
@@ -195,12 +219,24 @@ db.create.table.stadium.transitive <- function(con) {
 
 ## Create the table for storing teams
 db.create.table.team <- function(con) {
-   dbSendQuery(con, paste(
+    dbSendQuery(con, paste(
         "CREATE TABLE team (",
         "id INTEGER PRIMARY KEY,",
-        "university TEXT NOT NULL,",
+        "university TEXT NOT NULL UNIQUE",
+        ")"
+        ))
+}
+
+## Create the table for storing teams transitive properties
+db.create.table.team.transitive <- function(con) {
+    dbSendQuery(con, paste(
+        "CREATE TABLE team_transitive (",
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,",
+        "team_id INTEGER,",
         "home_stadium INTEGER NOT NULL,",
-        "FOREIGN KEY (home_stadium) REFERENCES stadium(id)",
+        "year INTEGER NOT NULL,",
+        "FOREIGN KEY ( team_id ) REFERENCES team(id)",
+        "FOREIGN KEY ( home_stadium ) REFERENCES stadium(id)",
         ")"
         ))
 }

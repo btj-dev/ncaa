@@ -60,6 +60,32 @@ fix.cities <- function(cities) {
 ## Returns a list of all available years
 get.all.years <- function() return(seq(2005, 2013))
 
+## Identifies the primary (most common) home stadium for each team in each
+## year
+get.home.stadiums <- function(datadir, years) {
+    ## Load the data and merge teams with the games they played
+    teams.raw <- read.multi.files(sprintf('%s/%%d/team.csv', datadir),
+                                  years)
+    games.raw <- read.multi.files(sprintf('%s/%%d/game.csv', datadir),
+                                  years)
+    df <- with(subset(merge(teams.raw, games.raw,
+                            by.x='Team.Code', by.y='Home.Team.Code'),
+                      Site=='TEAM'),
+               data.frame(team=Team.Code, year=itr.y,
+                          stadium=Stadium.Code))
+    ## Find the most common home stadium for each team, each year
+    teams <- unique(df$team)
+    return.stadiums <- expand.grid(team=teams, year=years) ## Return df
+    return.stadiums$stadium <- sapply(seq(nrow(return.stadiums)),
+        function(i) {
+            data <- subset(subset(df, team == return.stadiums$team[i]),
+                           year == return.stadiums$year[i])
+            uni <- unique(data$stadium)
+            return(uni[which.max(tabulate(match(data$stadium, uni)))])
+        })
+    return(return.stadiums)
+}
+
 ## Loads the plays from disk into the database as table play
 load.plays <- function(datadir, year=get.all.years()) {
     plays <- read.multi.files(sprintf('%s/%%d/play.csv', datadir),
@@ -101,8 +127,14 @@ load.stadiums <- function(datadir, years=get.all.years()) {
 
 ## Loads the teams from disk into the database
 load.teams <- function(datadir, years=get.all.years()) {
+    ## Load the permanent data for each team
     teams.raw <- read.multi.files(sprintf('%s/%%d/team.csv', datadir),
                                   years)
+    teams <- db.add.teams(unique(data.frame(university=teams.raw$Name,
+                                            old.key=teams.raw$Team.Code)))
+    ## Load the home stadium for each team each year
+    home.stadiums <- get.home.stadiums(datadir, years)
+    db.add.teams.transitive(home.stadiums)
 }
 
 ## Loads multiple years of data into a single data frame. Format is a string
