@@ -28,6 +28,39 @@ db.add.city <- function(con, city) {
     return(db.add.record(con, stmt))
 }
 
+## Adds a single game to the database
+db.add.game <- function(con, game) {
+    if(is.null(game$id))
+        stop("The game id number must be provided")
+    if(is.null(game$date))
+        stop("The game date must be provided")
+    if(is.null(game$home.team))
+        stop("The home team must be specified")
+    if(is.null(game$away.team))
+        stop("The away team must be specified")
+    if(is.null(game$stadium))
+        game$stadium <- 'NULL'
+    if(is.null(game$site))
+        game$site <- 'NULL'
+    stmt <- with(game,
+                 paste("INSERT INTO game ",
+                       "(id, date, home_team, away_team, stadium, site) ",
+                       "VALUES ( ",
+                       id, ", '", date, "', ", home.team, ", ", away.team,
+                       ", ", stadium, ", '", site, "')",
+                       sep=""))
+    return(db.add.record(con, stmt))
+}
+
+## Adds a set of games to the database
+db.add.games <- function(games) {
+    con <- db.connect()
+    games$key <- sapply(seq(nrow(games)), function(i)
+                           return(db.add.game(con, games[i,])))
+    db.disconnect(con)
+    return(games)
+}
+
 ## Adds a record to the database and returns the row id of the new record
 db.add.record <- function(con, sql) {
     ## Enter the data
@@ -173,7 +206,7 @@ db.create.table.city <- function(con) {
         ))
 }
 
-## Create te table for storing games
+## Create the table for storing games
 db.create.table.game <- function(con) {
     dbSendQuery(con, paste(
         "CREATE TABLE game (",
@@ -181,7 +214,8 @@ db.create.table.game <- function(con) {
         "date VARCHAR(16) NOT NULL,",
         "home_team INTEGER NOT NULL,",
         "away_team INTEGER NOT NULL,",
-        "stadium VARCHAR(2) NOT NULL,",
+        "stadium VARCHAR(2),",
+        "site VARCHAR(6),",
         "FOREIGN KEY ( home_team ) REFERENCES team(id),",
         "FOREIGN KEY ( away_team ) REFERENCES team(id)",
         ")"

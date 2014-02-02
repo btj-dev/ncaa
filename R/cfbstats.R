@@ -86,6 +86,16 @@ get.home.stadiums <- function(datadir, years) {
     return(return.stadiums)
 }
 
+## Loads the games from disk into the database as table game
+load.games <- function(datadir, year=get.all.years()) {
+    games.raw <- read.multi.files(sprintf('%s/%%d/game.csv', datadir),
+                                  years)
+    names(games.raw) <- c("id", "date", "away.team", "home.team", "stadium",
+                          "site", "year")
+    games.raw$date <- as.Date(games.raw$date, format="%m/%d/%Y")
+    games <- db.add.games(games.raw)
+}
+
 ## Loads the plays from disk into the database as table play
 load.plays <- function(datadir, year=get.all.years()) {
     plays <- read.multi.files(sprintf('%s/%%d/play.csv', datadir),
