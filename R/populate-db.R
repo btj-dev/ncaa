@@ -26,10 +26,7 @@ download.cfbstats(cfg$rawdatadir)
 load.stadiums(cfg$rawdatadir)
 load.teams(cfg$rawdatadir)
 load.games(cfg$rawdatadir)
-## Loading plays is too slow, try using a single transaction.
-Rprof(interval=0.5)
-system.time(load.plays(cfg$rawdatadir))
-Rprof(NULL)
+load.plays(cfg$rawdatadir)
 
 library(profr)
 summaryRprof()

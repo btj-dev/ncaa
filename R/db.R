@@ -81,17 +81,17 @@ db.add.play <- function(con, play) {
         stop('Offense team id must be provided')
     if(is.null(play$defense))
         stop('Defense team id must be provided')
-    if(is.null(play$offense.points) || is.na(play$distance))
+    if(is.null(play$offense.points) || is.na(play$offense.points))
         play$offense.points <- 'NULL'
-    if(is.null(play$defense.points) || is.na(play$distance))
+    if(is.null(play$defense.points) || is.na(play$defense.points))
         play$defense.points <- 'NULL'
     if(is.null(play$down) || is.na(play$down))
         play$down <- 'NULL'
     if(is.null(play$distance) || is.na(play$distance))
         play$distance <- 'NULL'
-    if(is.null(play$spot) || is.na(play$distance))
+    if(is.null(play$spot) || is.na(play$spot))
         play$spot <- 'NULL'
-    if(is.null(play$play.type) || is.na(play$distance))
+    if(is.null(play$play.type) || is.na(play$play.type))
         play$play.type <- 'NULL'
     if(is.null(play$drive.number) || is.na(play$drive.number))
         play$drive.number <- 'NULL'
@@ -112,24 +112,74 @@ db.add.play <- function(con, play) {
 }
 compile(db.add.play)
 
+## Returns TRUE if NULL or NA, and FALSE otherwise
+is.missing <- function(x)
+    return(!(is.null(x) || is.na(x)))
+
+## TODO Bulk inserts are much faster (few seconds vs. hours), modify all
+## inserts to use them
+db.add.plays.bulk <- function(plays) {
+    ## Connect to the database
+    con <- db.connect()
+    ## Check the plays for validity
+    nplays <- nrow(plays)
+    plays <- plays[is.missing(plays$game.code),]
+    plays <- plays[is.missing(plays$play.number),]
+    plays <- plays[is.missing(plays$offense),]
+    plays <- plays[is.missing(plays$defense),]
+    plays$quarter[is.missing(plays$quarter)] <- 'NULL'
+    plays$clock[is.missing(plays$clock)] <- 'NULL'
+    plays$offense.points[is.missing(plays$offense.points)] <- 'NULL'
+    plays$defense.points[is.missing(plays$defense.points)] <- 'NULL'
+    plays$down[is.missing(plays$down)] <- 'NULL'
+    plays$distance[is.missing(plays$distance)] <- 'NULL'
+    plays$spot[is.missing(plays$spot)] <- 'NULL'
+    plays$play.type <- as.character(plays$play.type)
+    plays$play.type[is.missing(plays$play.type)] <- 'NULL'
+    plays$drive.number[is.missing(plays$drive.number)] <- 'NULL'
+    plays$drive.play[is.missing(plays$drive.play)] <- 'NULL'
+    if(nplays != nrow(plays))
+        warning(sprintf('%d plays were ignored due to NULL values.',
+                        nplays - nrow(plays)))
+    ## Rename variables in plays to use _ instead of . (for SQL)
+    n <- names(plays)
+    n <- gsub("\\.", "_", n)
+    names(plays) <- n
+    print(names(plays))
+    ## Bulk insert the plays
+    dbBeginTransaction(con)
+    sql <- paste("INSERT INTO play (game_code, play_number, quarter, clock, ",
+                 "offense, defense, offense_points, defense_points, down, ",
+                 "distance, spot, play_type, drive_number, drive_play) ",
+                 "VALUES (:game_code, :play_number, :quarter, :clock, ",
+                 ":offense, :defense, :offense_points, :defense_points, ",
+                 ":down, :distance, :spot, ':play_type', :drive_number, ",
+                 ":drive_play);", sep="")
+    dbSendPreparedQuery(con, sql, bind.data=plays)
+    dbCommit(con)
+    ## Disconnect from the database
+    db.disconnect(con)
+}
+
 ## Adds a set of plays to the database and returns plays unchanged.
 ## TODO redundant functionality
 db.add.plays <- function(plays) {
     cat(sprintf('Adding %d plays...\n', nrow(plays)))
-    con <- db.connect()
+    #con <- db.connect()
     ## The entire dataframe is added in a single transaction for efficiency.
     ## Using a single transaction achieves a rate of 15,000 records/min vs.
     ## 13,000 records/min without. This is still an estimated 90 minutes/yr,
     ## which is too slow.
-    dbBeginTransaction(con)
-    sapply(seq(nrow(plays)), function(i) {
-        if(!(i %% 10000))
-            print(sprintf('%d %s', i, Sys.time()))
-        return(db.add.play(con, plays[i,]))
-    }
-           )
-    dbCommit(con)
-    db.disconnect(con)
+    #dbBeginTransaction(con)
+    #sapply(seq(nrow(plays)), function(i) {
+    #    if(!(i %% 10000))
+    #        print(sprintf('%d %s', i, Sys.time()))
+    #    return(db.add.play(con, plays[i,]))
+    #}
+    #       )
+    #dbCommit(con)
+    #db.disconnect(con)
+    db.add.plays.bulk(plays)
     return(plays)
 }
 compile(db.add.plays)
