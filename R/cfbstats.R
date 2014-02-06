@@ -87,7 +87,7 @@ get.home.stadiums <- function(datadir, years) {
 }
 
 ## Loads the games from disk into the database as table game
-load.games <- function(datadir, year=get.all.years()) {
+load.games <- function(datadir, years=get.all.years()) {
     games.raw <- read.multi.files(sprintf('%s/%%d/game.csv', datadir),
                                   years)
     names(games.raw) <- c("id", "date", "away.team", "home.team", "stadium",
@@ -97,9 +97,14 @@ load.games <- function(datadir, year=get.all.years()) {
 }
 
 ## Loads the plays from disk into the database as table play
-load.plays <- function(datadir, year=get.all.years()) {
+load.plays <- function(datadir, years=get.all.years()) {
     plays <- read.multi.files(sprintf('%s/%%d/play.csv', datadir),
                               years)
+    names(plays) <- c('game.code', 'play.number', 'quarter', 'clock',
+                      'offense', 'defense', 'offense.points',
+                      'defense.points', 'down', 'distance', 'spot',
+                      'play.type', 'drive.number', 'drive.play', 'year')
+    db.add.plays(plays)
 }
 
 ## Loads the stadiums from disk into the database as tables city, stadium, and
@@ -163,8 +168,9 @@ read.multi.files <- function(format, itr) {
     ## Aggregate the data, this will be slow for large datasets due to
     ## reallocating the dataframe
     df <- lst[[1]]
-    for(i in seq(2, length(itr)))
-        df <- rbind(df, lst[[i]])
+    if(length(lst) > 1)
+        for(i in seq(2, length(itr)))
+            df <- rbind(df, lst[[i]])
 
     return(df)
 }

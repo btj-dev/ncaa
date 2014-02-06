@@ -14,6 +14,7 @@ db.add.cities <- function(cities) {
     db.disconnect(con)
     return(cities)
 }
+compile(db.add.cities)
 
 ## Adds a single city to the database
 db.add.city <- function(con, city) {
@@ -27,6 +28,7 @@ db.add.city <- function(con, city) {
                   sep='')
     return(db.add.record(con, stmt))
 }
+compile(db.add.city)
 
 ## Adds a single game to the database
 db.add.game <- function(con, game) {
@@ -51,6 +53,7 @@ db.add.game <- function(con, game) {
                        sep=""))
     return(db.add.record(con, stmt))
 }
+compile(db.add.game)
 
 ## Adds a set of games to the database
 db.add.games <- function(games) {
@@ -60,6 +63,76 @@ db.add.games <- function(games) {
     db.disconnect(con)
     return(games)
 }
+compile(db.add.games)
+
+## Adds a single play to the database
+## There is so far no need to know the ROWID, so nothing is returned
+## is.null || is.na -> is.missing (function)
+db.add.play <- function(con, play) {
+    if(is.null(play$game.code) || is.na(play$game.code))
+        stop('A game code must be provided')
+    if(is.null(play$play.number) || is.na(play$play.number))
+        stop('Play number must be provided')
+    if(is.null(play$quarter) || is.na(play$distance))
+        play$quarter <- 'NULL'
+    if(is.null(play$clock) || is.na(play$clock))
+        play$clock <- 'NULL'
+    if(is.null(play$offense))
+        stop('Offense team id must be provided')
+    if(is.null(play$defense))
+        stop('Defense team id must be provided')
+    if(is.null(play$offense.points) || is.na(play$distance))
+        play$offense.points <- 'NULL'
+    if(is.null(play$defense.points) || is.na(play$distance))
+        play$defense.points <- 'NULL'
+    if(is.null(play$down) || is.na(play$down))
+        play$down <- 'NULL'
+    if(is.null(play$distance) || is.na(play$distance))
+        play$distance <- 'NULL'
+    if(is.null(play$spot) || is.na(play$distance))
+        play$spot <- 'NULL'
+    if(is.null(play$play.type) || is.na(play$distance))
+        play$play.type <- 'NULL'
+    if(is.null(play$drive.number) || is.na(play$drive.number))
+        play$drive.number <- 'NULL'
+    if(is.null(play$drive.play) || is.na(play$drive.play))
+        play$drive.play <- 'NULL'
+    stmt <- with(play,
+                 paste("INSERT INTO play ( game_code, play_number, quarter, ",
+                       "clock, offense, defense, offense_points, ",
+                       "defense_points, down, distance, spot, play_type, ",
+                       "drive_number, drive_play ) VALUES ( ",
+                       game.code, ", ", play.number, ", ",
+                       quarter, ", ", clock, ", ", offense, ", ", defense,
+                       ", ", offense.points, ", ", defense.points, ", ",
+                       down, ", ", distance, ", ", spot, ", '", play.type,
+                       "', ", drive.number, ", ", drive.play, " )",
+                       sep=""))
+    dbSendQuery(con, stmt)
+}
+compile(db.add.play)
+
+## Adds a set of plays to the database and returns plays unchanged.
+## TODO redundant functionality
+db.add.plays <- function(plays) {
+    cat(sprintf('Adding %d plays...\n', nrow(plays)))
+    con <- db.connect()
+    ## The entire dataframe is added in a single transaction for efficiency.
+    ## Using a single transaction achieves a rate of 15,000 records/min vs.
+    ## 13,000 records/min without. This is still an estimated 90 minutes/yr,
+    ## which is too slow.
+    dbBeginTransaction(con)
+    sapply(seq(nrow(plays)), function(i) {
+        if(!(i %% 10000))
+            print(sprintf('%d %s', i, Sys.time()))
+        return(db.add.play(con, plays[i,]))
+    }
+           )
+    dbCommit(con)
+    db.disconnect(con)
+    return(plays)
+}
+compile(db.add.plays)
 
 ## Adds a record to the database and returns the row id of the new record
 db.add.record <- function(con, sql) {
@@ -229,20 +302,20 @@ db.create.table.play <- function(con) {
         "CREATE TABLE play (",
         "id INTEGER PRIMARY KEY AUTOINCREMENT,",
         "game_code INTEGER NOT NULL,",
-        "play_number INTEGER,",
-        "quarter INTEGER NOT NULL,",
+        "play_number INTEGER NOT NULL,",
+        "quarter INTEGER,",
         "clock INTEGER,",
         ## TODO Store home/away are reference game for team names
         "offense INTEGER NOT NULL,", 
         "defense INTEGER NOT NULL,",
         "offense_points INTEGER,",
         "defense_points INTEGER,",
-        "down INTEGER NOT NULL,",
-        "distance INTEGER NOT NULL,",
-        "spot INTEGER NOT NULL,",
+        "down INTEGER,",
+        "distance INTEGER,",
+        "spot INTEGER,",
         "play_type TEXT,",
-        "drive_number INTEGER NOT NULL,",
-        "drive_play INTEGER NOT NULL,",
+        "drive_number INTEGER,",
+        "drive_play INTEGER,",
         "FOREIGN KEY ( game_code ) REFERENCES game(id)",
         "FOREIGN KEY ( offense ) REFERENCES team(id)",
         "FOREIGN KEY ( defense ) REFERENCES team(id)",
