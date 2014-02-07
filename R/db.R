@@ -114,19 +114,19 @@ compile(db.add.play)
 
 ## Returns TRUE if NULL or NA, and FALSE otherwise
 is.missing <- function(x)
-    return(!(is.null(x) || is.na(x)))
+    return(is.null(x) || is.na(x))
 
+## Adds a set of plays to the database and returns plays unchanged.
 ## TODO Bulk inserts are much faster (few seconds vs. hours), modify all
 ## inserts to use them
-db.add.plays.bulk <- function(plays) {
-    ## Connect to the database
-    con <- db.connect()
+## TODO redundant functionality
+db.add.plays <- function(plays) {
     ## Check the plays for validity
     nplays <- nrow(plays)
-    plays <- plays[is.missing(plays$game.code),]
-    plays <- plays[is.missing(plays$play.number),]
-    plays <- plays[is.missing(plays$offense),]
-    plays <- plays[is.missing(plays$defense),]
+    plays <- plays[!is.missing(plays$game.code),]
+    plays <- plays[!is.missing(plays$play.number),]
+    plays <- plays[!is.missing(plays$offense),]
+    plays <- plays[!is.missing(plays$defense),]
     plays$quarter[is.missing(plays$quarter)] <- 'NULL'
     plays$clock[is.missing(plays$clock)] <- 'NULL'
     plays$offense.points[is.missing(plays$offense.points)] <- 'NULL'
@@ -142,45 +142,10 @@ db.add.plays.bulk <- function(plays) {
         warning(sprintf('%d plays were ignored due to NULL values.',
                         nplays - nrow(plays)))
     ## Rename variables in plays to use _ instead of . (for SQL)
-    n <- names(plays)
-    n <- gsub("\\.", "_", n)
-    names(plays) <- n
-    print(names(plays))
+    names(plays) <- gsub("\\.", "_", names(plays))
     ## Bulk insert the plays
-    dbBeginTransaction(con)
-    sql <- paste("INSERT INTO play (game_code, play_number, quarter, clock, ",
-                 "offense, defense, offense_points, defense_points, down, ",
-                 "distance, spot, play_type, drive_number, drive_play) ",
-                 "VALUES (:game_code, :play_number, :quarter, :clock, ",
-                 ":offense, :defense, :offense_points, :defense_points, ",
-                 ":down, :distance, :spot, ':play_type', :drive_number, ",
-                 ":drive_play);", sep="")
-    dbSendPreparedQuery(con, sql, bind.data=plays)
-    dbCommit(con)
-    ## Disconnect from the database
-    db.disconnect(con)
-}
-
-## Adds a set of plays to the database and returns plays unchanged.
-## TODO redundant functionality
-db.add.plays <- function(plays) {
-    cat(sprintf('Adding %d plays...\n', nrow(plays)))
-    #con <- db.connect()
-    ## The entire dataframe is added in a single transaction for efficiency.
-    ## Using a single transaction achieves a rate of 15,000 records/min vs.
-    ## 13,000 records/min without. This is still an estimated 90 minutes/yr,
-    ## which is too slow.
-    #dbBeginTransaction(con)
-    #sapply(seq(nrow(plays)), function(i) {
-    #    if(!(i %% 10000))
-    #        print(sprintf('%d %s', i, Sys.time()))
-    #    return(db.add.play(con, plays[i,]))
-    #}
-    #       )
-    #dbCommit(con)
-    #db.disconnect(con)
-    db.add.plays.bulk(plays)
-    return(plays)
+    sql <- read.sql('../sql/insert-play.sql')
+    db.send.prepared.query(sql, plays)
 }
 compile(db.add.plays)
 
@@ -330,48 +295,13 @@ db.create.table.city <- function(con) {
 }
 
 ## Create the table for storing games
-db.create.table.game <- function(con) {
-    dbSendQuery(con, paste(
-        "CREATE TABLE game (",
-        "id INTEGER PRIMARY KEY,",
-        "date VARCHAR(16) NOT NULL,",
-        "home_team INTEGER NOT NULL,",
-        "away_team INTEGER NOT NULL,",
-        "stadium VARCHAR(2),",
-        "site VARCHAR(6),",
-        "FOREIGN KEY ( home_team ) REFERENCES team(id),",
-        "FOREIGN KEY ( away_team ) REFERENCES team(id)",
-        ")"
-        ))
-}
+db.create.table.game <- function(con)
+    dbSendQuery(con, read.sql('../sql/create-table-game.sql'))
 
 ## Create a table for storing play information
 ## TODO Add triggers
-db.create.table.play <- function(con) {
-    dbSendQuery(con, paste(
-        "CREATE TABLE play (",
-        "id INTEGER PRIMARY KEY AUTOINCREMENT,",
-        "game_code INTEGER NOT NULL,",
-        "play_number INTEGER NOT NULL,",
-        "quarter INTEGER,",
-        "clock INTEGER,",
-        ## TODO Store home/away are reference game for team names
-        "offense INTEGER NOT NULL,", 
-        "defense INTEGER NOT NULL,",
-        "offense_points INTEGER,",
-        "defense_points INTEGER,",
-        "down INTEGER,",
-        "distance INTEGER,",
-        "spot INTEGER,",
-        "play_type TEXT,",
-        "drive_number INTEGER,",
-        "drive_play INTEGER,",
-        "FOREIGN KEY ( game_code ) REFERENCES game(id)",
-        "FOREIGN KEY ( offense ) REFERENCES team(id)",
-        "FOREIGN KEY ( defense ) REFERENCES team(id)",
-        ")"
-        ))
-}
+db.create.table.play <- function(con)
+    dbSendQuery(con, read.sql('../sql/create-play.sql'))
 
 ## Create the table for storing stadium permanent properties
 db.create.table.stadium <- function(con) {
@@ -445,6 +375,16 @@ db.get.query <- function(sql) {
     return(res)
 }
 
+## Sends a set of prepared queries to the database
+db.send.prepared.query <- function(sql, bind.data) {
+    con <- db.connect()
+    dbBeginTransaction(con)
+    dbSendPreparedQuery(con, sql, bind.data=plays)
+    dbCommit(con)
+    db.disconnect(con)
+}
+compile(db.send.prepared.query)
+
 ## Updates multiple city records in the database
 db.update.cities <- function(cities) {
     con <- db.connect()
@@ -468,3 +408,9 @@ db.update.city <- function(con, city) {
                   sep="")
     dbSendQuery(con, stmt)
 }
+
+## Reads and returns a sql statement from file stripping any whitespace that
+## consists of 2 spaces.
+read.sql <- function(file)
+    return(gsub('  ', '', paste(readLines(file), collapse='')))
+

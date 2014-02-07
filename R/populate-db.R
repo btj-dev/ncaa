@@ -16,7 +16,7 @@ source('extra-data.R') ## Functions for download data from various sources
 enableJIT(0)
 
 ## Create the database
-db.create()
+db.create(clobber=FALSE)
 
 ## Download stats from cfbstats.com and add to db as needed
 ## TODO There needs to be error catching in db.R. It should be possible to
