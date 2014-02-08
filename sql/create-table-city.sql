@@ -1,0 +1,7 @@
+CREATE TABLE city (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  state VARCHAR(2) NOT NULL,
+  latitude REAL,
+  longitude REAL
+)

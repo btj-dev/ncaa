@@ -1,3 +1,4 @@
+library(compiler)
 library(RSQLite)
 
 dbname <- '../data/sports-stats.sqlite3'
@@ -120,6 +121,7 @@ is.missing <- function(x)
 ## TODO Bulk inserts are much faster (few seconds vs. hours), modify all
 ## inserts to use them
 ## TODO redundant functionality
+## TODO Play types are not inserted correctly
 db.add.plays <- function(plays) {
     ## Check the plays for validity
     nplays <- nrow(plays)
@@ -144,7 +146,7 @@ db.add.plays <- function(plays) {
     ## Rename variables in plays to use _ instead of . (for SQL)
     names(plays) <- gsub("\\.", "_", names(plays))
     ## Bulk insert the plays
-    sql <- read.sql('../sql/insert-play.sql')
+    sql <- read.sql('../sql/insert-into-play.sql')
     db.send.prepared.query(sql, plays)
 }
 compile(db.add.plays)
@@ -282,17 +284,8 @@ db.create <- function() {
 }
 
 ## Create the table for storing cities
-db.create.table.city <- function(con) {
-    dbSendQuery(con, paste(
-        "CREATE TABLE city (",
-        "id INTEGER PRIMARY KEY AUTOINCREMENT,",
-        "name TEXT NOT NULL,",
-        "state VARCHAR(2) NOT NULL,",
-        "latitude REAL,",
-        "longitude REAL",
-        ")"
-        ))
-}
+db.create.table.city <- function(con)
+    dbSendQuery(con, read.sql('../sql/create-table-city.sql'))
 
 ## Create the table for storing games
 db.create.table.game <- function(con)
@@ -301,57 +294,23 @@ db.create.table.game <- function(con)
 ## Create a table for storing play information
 ## TODO Add triggers
 db.create.table.play <- function(con)
-    dbSendQuery(con, read.sql('../sql/create-play.sql'))
+    dbSendQuery(con, read.sql('../sql/create-table-play.sql'))
 
 ## Create the table for storing stadium permanent properties
-db.create.table.stadium <- function(con) {
-    dbSendQuery(con, paste(
-        "CREATE TABLE stadium (",
-        "id INTEGER PRIMARY KEY,",
-        "city INTEGER NOT NULL,",
-        "year_opened INTEGER,",
-        "FOREIGN KEY(city) REFERENCES city(id)",
-        ")"
-        ))
-}
+db.create.table.stadium <- function(con)
+    dbSendQuery(con, read.sql('../sql/create-table-stadium.sql'))
 
 ## Create the table for storing stadium transitive properties
-db.create.table.stadium.transitive <- function(con) {
-    dbSendQuery(con, paste(
-        "CREATE TABLE stadium_transitive (",
-        "id INTEGER PRIMARY KEY AUTOINCREMENT,",
-        "stadium INTEGER NOT NULL,",
-        "name TEXT,",
-        "capacity INTEGER,",
-        "surface TEXT,",
-        "FOREIGN KEY (stadium) REFERENCES stadium(id)",
-        ")"
-        ))
-}
+db.create.table.stadium.transitive <- function(con)
+    dbSendQuery(con, read.sql('../sql/create-table-stadium-transitive.sql'))
 
 ## Create the table for storing teams
-db.create.table.team <- function(con) {
-    dbSendQuery(con, paste(
-        "CREATE TABLE team (",
-        "id INTEGER PRIMARY KEY,",
-        "university TEXT NOT NULL UNIQUE",
-        ")"
-        ))
-}
+db.create.table.team <- function(con)
+    dbSendQuery(con, read.sql('../sql/create-table-team.sql'))
 
 ## Create the table for storing teams transitive properties
-db.create.table.team.transitive <- function(con) {
-    dbSendQuery(con, paste(
-        "CREATE TABLE team_transitive (",
-        "id INTEGER PRIMARY KEY AUTOINCREMENT,",
-        "team_id INTEGER,",
-        "home_stadium INTEGER,",
-        "year INTEGER NOT NULL,",
-        "FOREIGN KEY ( team_id ) REFERENCES team(id)",
-        "FOREIGN KEY ( home_stadium ) REFERENCES stadium(id)",
-        ")"
-        ))
-}
+db.create.table.team.transitive <- function(con)
+    dbSendQuery(con, read.sql('../sql/create-table-team-transitive.sql'))
 
 ## Flushes and transactions and disconnects from database con
 db.disconnect <- function(con) {
@@ -379,7 +338,7 @@ db.get.query <- function(sql) {
 db.send.prepared.query <- function(sql, bind.data) {
     con <- db.connect()
     dbBeginTransaction(con)
-    dbSendPreparedQuery(con, sql, bind.data=plays)
+    dbSendPreparedQuery(con, sql, bind.data=bind.data)
     dbCommit(con)
     db.disconnect(con)
 }

@@ -1,4 +1,4 @@
-CREATE TABLE game (,
+CREATE TABLE game (
   id INTEGER PRIMARY KEY,
   date VARCHAR(16) NOT NULL,
   home_team INTEGER NOT NULL,
